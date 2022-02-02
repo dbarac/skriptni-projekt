@@ -70,69 +70,63 @@ root.wm_title("Vizualizacija mjerenja u kvarnerskom zaljevu: salinitet, temperat
 # sidebar
 sidebar = tk.Frame(root, width=350, height=500, relief='sunken', borderwidth=2)
 sidebar.pack(expand=False, fill='both', side='left', anchor='nw')
-# main content area
+# main content area - visualization
 mainarea = tk.Frame(root, bg='#CCC', width=500, height=500)
 mainarea.pack(expand=True, fill='both', side='right')
 
-separator = ttk.Separator(sidebar, orient='horizontal')
-separator.pack(fill='x')
-tk.Label(sidebar, text="Veličina kruga", font='Helvetica 11 bold').pack(fill='x')
+SALINITY = 0
+TEMPERATURE = 1
+ECOLI = 2
+def select_color_variable():
+    pass
+    #selection = "You selected the option " + str(var.get())
+    #label.config(text = selection)
 
+def select_size_variable():
+    pass
+    #selection = "You selected the option " + str(var.get())
+    #label.config(text = selection)
 
-def sel():
-    selection = "You selected the option " + str(var.get())
-    label.config(text = selection)
+def add_widgets_to_sidebar(sidebar):
+    values = (SALINITY, TEMPERATURE, ECOLI)
+    variable_names = ("Salinitet", "Temperatura", "E. Coli")
 
-def sel2():
-    selection = "You selected the option " + str(var.get())
-    label.config(text = selection)
+    # create radio buttons for selecting the variable which should be used
+    # to determine point size
+    tk.Label(sidebar, text="Veličina kruga", font='Helvetica 11 bold').pack(fill='x')
+    size_variable = tk.IntVar()
+    for val, var_name in zip(values, variable_names):
+        tk.Radiobutton(
+            sidebar, text=var_name, variable=size_variable, value=val,
+            command=select_size_variable, width=35
+        ).pack(anchor=tk.W)
+    
+    separator3 = ttk.Separator(sidebar, orient='horizontal')
+    separator3.pack(fill='x')
 
-var = tk.IntVar()
-R1 = tk.Radiobutton(sidebar, text="Salinitet", variable=var, value=1,
-                  command=sel, width=35)
-R1.pack(anchor = tk.W )
+    # create radio buttons for selecting the variable which should be used
+    # to determine point color
+    tk.Label(sidebar, text="Boja kruga", font='Helvetica 11 bold').pack(fill='x')
+    color_variable = tk.IntVar()
+    for val, var_name in zip(values, variable_names):
+        tk.Radiobutton(
+            sidebar, text=var_name, variable=color_variable, value=val,
+            command=select_color_variable, width=35
+        ).pack(anchor=tk.W)
 
-R2 = tk.Radiobutton(sidebar, text="Temperatura", variable=var, value=2,
-                  command=sel, width=35)
-R2.pack(anchor = tk.W )
+    separator2 = ttk.Separator(sidebar, orient='horizontal')
+    separator2.pack(fill='x')
+    tk.Label(sidebar, text="Datum opažanja", font='Helvetica 11 bold').pack(fill='x')
+    
+    dates = list(data["Datum"].unique())
+    
+    variable = tk.StringVar(sidebar)
+    variable.set(dates[0]) # default value
+    
+    w = tk.OptionMenu(sidebar, variable, *dates)
+    w.pack()
 
-R3 = tk.Radiobutton(sidebar, text="E. Coli", variable=var, value=3,
-                  command=sel, width=35)
-R3.pack(anchor = tk.W)
-
-separator3 = ttk.Separator(sidebar, orient='horizontal')
-separator3.pack(fill='x')
-tk.Label(sidebar, text="Boja kruga", font='Helvetica 11 bold').pack(fill='x')
-var2 = tk.IntVar()
-Rs1 = tk.Radiobutton(sidebar, text="Salinitet", variable=var2, value=1,
-                  command=sel, width=35)
-Rs1.pack(anchor = tk.W)
-
-Rs2 = tk.Radiobutton(sidebar, text="Temperatura", variable=var2, value=2,
-                  command=sel, width=35)
-Rs2.pack(anchor = tk.W)
-
-Rs3 = tk.Radiobutton(sidebar, text="E. Coli", variable=var2, value=3,
-                  command=sel, width=35)
-Rs3.pack(anchor = tk.W)
-
-separator2 = ttk.Separator(sidebar, orient='horizontal')
-separator2.pack(fill='x')
-tk.Label(sidebar, text="Datum opažanja", font='Helvetica 11 bold').pack(fill='x')
-
-OPTIONS = [
-    "Salinitet",
-    "Temperatura",
-    "E. Coli"
-] #etc
-
-dates = list(data["Datum"].unique())
-
-variable = tk.StringVar(sidebar)
-variable.set(dates[0]) # default value
-
-w = tk.OptionMenu(sidebar, variable, *dates)
-w.pack()
+add_widgets_to_sidebar(sidebar)
 
 img = mpimg.imread("kvarnerski-zaljev.png")
 fig = Figure(figsize=(5, 4), dpi=100)
@@ -141,42 +135,110 @@ ax = fig.gca()
 ax.imshow(img)
 ## imgplot = plt.imshow(img)
 
-x = []
-y = []
-sizes = []
-colors = []
-ecoli_min = data["EC"].min()
-ecoli_max = data["EC"].max()
-temp_min = data["Temperatura mora"].min()
-temp_max = data["Temperatura mora"].max()
-salinity_min = data["Slanost"].min()
-salinity_max = data["Slanost"].max()
+def update_visualization(data, date, color_variable, size_variable):
+    observations = data[data["Datum"] == date]
+    x = []
+    y = []
+    sizes = []
+    colors = []
 
-beaches = []
-annotations = []
-for idx, row in data.iterrows():
-    lat, lon = beach_coords[row["Ime plaze"]]
-    beach_x, beach_y = map_coords_to_img_coords(img, lat, lon)
-    if row["Ime plaze"] not in beaches:
+    column_names = ["Slanost", "Temperatura mora", "EC"]
+    min_values = [
+        observations["Slanost"].min(),
+        observations["Temperatura mora"].min(),
+        observations["EC"].min()
+    ]
+    max_values = [
+        observations["Slanost"].max(),
+        observations["Temperatura mora"].max(),
+        observations["EC"].max()
+    ]
+
+    def get_circle_size(size_variable, value):
+        """
+        Select circle size between MIN_SIZE and MAX_SIZE
+        depending on the given variable value.
+        """
+        MIN_SIZE = 200
+        MAX_SIZE = 500
+        value_range = max_values[size_variable] - min_values[size_variable]
+        ratio = (value - min_values[size_variable]) / value_range
+        circle_size = MIN_SIZE + ratio * (MAX_SIZE - MIN_SIZE)
+        return circle_size
+
+    def create_cirle_size_legend():
+        min_size = ax.scatter([],[], s=200, marker='o', color='#555555')
+        max_size = ax.scatter([],[], s=500, marker='o', color='#555555')
+        fig.legend(
+            (min_size, max_size),
+            (str(min_values[size_variable]), str(max_values[size_variable])),
+            scatterpoints=1, loc='lower right', ncol=1,
+            fontsize=8, borderpad=1.5, labelspacing=2, title=column_names[size_variable]
+        )
+
+    annotations = []
+    for idx, row in observations.iterrows():
+        lat, lon = beach_coords[row["Ime plaze"]]
+        beach_x, beach_y = map_coords_to_img_coords(img, lat, lon)
         x.append(beach_x)
         y.append(beach_y)
-        colors.append(row["EC"])
-        sizes.append(200)
-        beaches.append(row["Ime plaze"])
+        colors.append(row[column_names[color_variable]])
+        sizes.append(get_circle_size(size_variable, row[column_names[size_variable]]))
+
         annotations.append(
             row["Ime plaze"] + "\n" +
             "Slanost: " + str(row["Slanost"]) + "\n" +
             "Temperatura mora: " + str(row["Temperatura mora"]) + "\n" +
             "E. Coli: " + str(row["EC"])
         )
-points = ax.scatter(x, y, s=sizes, c=colors, alpha=1, vmin=ecoli_min, vmax=ecoli_max)
-mplcursors.cursor(points, hover=True).connect(
-    "add", lambda sel: sel.annotation.set_text(annotations[sel.index])
-)
-fig.colorbar(points)
+    points = ax.scatter(
+        x, y, s=sizes, c=colors, alpha=1,
+        vmin=min_values[color_variable], vmax=max_values[color_variable]
+    )
+    create_cirle_size_legend()
+
+    mplcursors.cursor(points, hover=True).connect(
+        "add", lambda sel: sel.annotation.set_text(annotations[sel.index])
+    )
+    fig.colorbar(points, label=column_names[color_variable])
+
+update_visualization(data, "13/05/2009", ECOLI, TEMPERATURE)
+## x = []
+## y = []
+## sizes = []
+## colors = []
+## ecoli_min = data["EC"].min()
+## ecoli_max = data["EC"].max()
+## temp_min = data["Temperatura mora"].min()
+## temp_max = data["Temperatura mora"].max()
+## salinity_min = data["Slanost"].min()
+## salinity_max = data["Slanost"].max()
+## 
+## beaches = []
+## annotations = []
+## for idx, row in data.iterrows():
+##     lat, lon = beach_coords[row["Ime plaze"]]
+##     beach_x, beach_y = map_coords_to_img_coords(img, lat, lon)
+##     if row["Ime plaze"] not in beaches:
+##         x.append(beach_x)
+##         y.append(beach_y)
+##         colors.append(row["EC"])
+##         sizes.append(200)
+##         beaches.append(row["Ime plaze"])
+##         annotations.append(
+##             row["Ime plaze"] + "\n" +
+##             "Slanost: " + str(row["Slanost"]) + "\n" +
+##             "Temperatura mora: " + str(row["Temperatura mora"]) + "\n" +
+##             "E. Coli: " + str(row["EC"])
+##         )
+## points = ax.scatter(x, y, s=sizes, c=colors, alpha=1, vmin=ecoli_min, vmax=ecoli_max)
+## mplcursors.cursor(points, hover=True).connect(
+##     "add", lambda sel: sel.annotation.set_text(annotations[sel.index])
+## )
+## fig.colorbar(points)
 #plt.show()
 
-    
+
 canvas = FigureCanvasTkAgg(fig, master=mainarea)  # A tk.DrawingArea.
 canvas.draw()
 canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
@@ -190,7 +252,6 @@ def on_key_press(event):
     print("you pressed {}".format(event.key))
     key_press_handler(event, canvas, toolbar)
 
-
 canvas.mpl_connect("key_press_event", on_key_press)
 
 
@@ -198,7 +259,6 @@ def _quit():
     root.quit()     # stops mainloop
     root.destroy()  # this is necessary on Windows to prevent
                     # Fatal Python Error: PyEval_RestoreThread: NULL tstate
-
 
 button = tk.Button(master=mainarea, text="Quit", command=_quit)
 button.pack(side=tk.BOTTOM)
