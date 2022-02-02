@@ -77,12 +77,12 @@ mainarea.pack(expand=True, fill='both', side='right')
 SALINITY = 0
 TEMPERATURE = 1
 ECOLI = 2
-
 size_variable = tk.IntVar()
 color_variable = tk.IntVar()
+
 selected_date = tk.StringVar()
 
-def update_visualization_parameters():
+def visualization_callback():
     """
     Callback function.
 
@@ -95,6 +95,11 @@ def update_visualization_parameters():
         data, selected_date.get(), color_variable.get(), size_variable.get()
     )
 
+def quit_callback():
+    root.quit()     # stops mainloop
+    root.destroy()  # this is necessary on Windows to prevent
+                    # Fatal Python Error: PyEval_RestoreThread: NULL tstate
+
 def add_widgets_to_sidebar(sidebar):
     values = (SALINITY, TEMPERATURE, ECOLI)
     variable_names = ("Salinitet", "Temperatura", "E. Coli")
@@ -105,7 +110,7 @@ def add_widgets_to_sidebar(sidebar):
     for val, var_name in zip(values, variable_names):
         tk.Radiobutton(
             sidebar, text=var_name, variable=size_variable, value=val,
-            command=update_visualization_parameters, width=35
+            command=visualization_callback, width=35
         ).pack(anchor=tk.W)
  
     ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
@@ -116,7 +121,7 @@ def add_widgets_to_sidebar(sidebar):
     for val, var_name in zip(values, variable_names):
         tk.Radiobutton(
             sidebar, text=var_name, variable=color_variable, value=val,
-            command=update_visualization_parameters, width=35
+            command=visualization_callback, width=35
         ).pack(anchor=tk.W)
 
     ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
@@ -124,21 +129,23 @@ def add_widgets_to_sidebar(sidebar):
     # create dropdown menu for selecting date
     tk.Label(sidebar, text="Datum opažanja", font='Helvetica 11 bold').pack(fill='x')
     dates = list(data["Datum"].unique())
+    dates.append("all dates")
     selected_date.set(dates[0]) # default value
     tk.OptionMenu(sidebar, selected_date, *dates).pack()
 
     submit_button = tk.Button(
-        sidebar, text='Update', command=update_visualization_parameters
+        sidebar, text='Update', command=visualization_callback
     )
     submit_button.pack()
+
+    quit_button = tk.Button(master=sidebar, text="Quit", command=quit_callback)
+    quit_button.pack(side=tk.BOTTOM)
 
 add_widgets_to_sidebar(sidebar)
 
 img = mpimg.imread("kvarnerski-zaljev.png")
 fig = Figure(figsize=(5, 4), dpi=100)
-#fig.add_subplot(111).imshow(img)
 
-## imgplot = plt.imshow(img)
 canvas = FigureCanvasTkAgg(fig, master=mainarea)  # A tk.DrawingArea.
 canvas.draw()
 canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
@@ -155,7 +162,11 @@ def update_visualization(data, date, color_variable, size_variable):
         "Vizualizacija mjerenja u kvarnerskom zaljevu: "
         "salinitet, temperatura i E. Coli"
     )
-    observations = data[data["Datum"] == date]
+
+    if date == "all dates":
+        observations = data
+    else:
+        observations = data[data["Datum"] == date]
 
     column_names = ("Slanost", "Temperatura mora", "EC")
     min_values = (
@@ -169,21 +180,21 @@ def update_visualization(data, date, color_variable, size_variable):
         observations["EC"].max()
     )
 
+    MIN_SIZE = 200
+    MAX_SIZE = 600
     def get_circle_size(size_variable, value):
         """
         Select circle size between MIN_SIZE and MAX_SIZE
         depending on the given variable value.
         """
-        MIN_SIZE = 200
-        MAX_SIZE = 500
         value_range = max_values[size_variable] - min_values[size_variable]
         ratio = (value - min_values[size_variable]) / value_range
         circle_size = MIN_SIZE + ratio * (MAX_SIZE - MIN_SIZE)
         return circle_size
 
     def create_cirle_size_legend():
-        min_size = ax.scatter([],[], s=200, marker='o', color='#555555')
-        max_size = ax.scatter([],[], s=500, marker='o', color='#555555')
+        min_size = ax.scatter([],[], s=MIN_SIZE, marker='o', color='#555555')
+        max_size = ax.scatter([],[], s=MAX_SIZE, marker='o', color='#555555')
         fig.legend(
             (min_size, max_size),
             (str(min_values[size_variable]), str(max_values[size_variable])),
@@ -225,9 +236,6 @@ def update_visualization(data, date, color_variable, size_variable):
 
 update_visualization(data, "13/05/2009", ECOLI, TEMPERATURE)
 
-
-
-
 def on_key_press(event):
     #print("you pressed {}".format(event.key))
     key_press_handler(event, canvas, toolbar)
@@ -235,16 +243,9 @@ def on_key_press(event):
 canvas.mpl_connect("key_press_event", on_key_press)
 
 
-def _quit():
-    root.quit()     # stops mainloop
-    root.destroy()  # this is necessary on Windows to prevent
-                    # Fatal Python Error: PyEval_RestoreThread: NULL tstate
 
-button = tk.Button(master=sidebar, text="Quit", command=_quit)
-button.pack(side=tk.BOTTOM)
 
-label = tk.Label(sidebar)
-label.pack()
+
 tk.mainloop()
 # If you put root.destroy() here, it will cause an error if the window is
 # closed with the window manager.
