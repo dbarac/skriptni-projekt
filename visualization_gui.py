@@ -65,7 +65,7 @@ def map_coords_to_img_coords(img, lat, lon):
     return x, y
 
 root = tk.Tk()
-root.wm_title("Vizualizacija mjerenja u kvarnerskom zaljevu: salinitet, temperatura i E. Coli")
+root.wm_title("Vizualizacija mjerenja u Kvarnerskom zaljevu: salinitet, temperatura i E. Coli")
 
 # sidebar
 sidebar = tk.Frame(root, width=350, height=500, relief='sunken', borderwidth=2)
@@ -77,10 +77,32 @@ mainarea.pack(expand=True, fill='both', side='right')
 SALINITY = 0
 TEMPERATURE = 1
 ECOLI = 2
+
+all_beaches = list(data["Ime plaze"].unique())
+selected_beaches = set(data["Ime plaze"].unique())
+
+# visualization parameters
 size_variable = tk.IntVar()
 color_variable = tk.IntVar()
-
 selected_date = tk.StringVar()
+beach_vars = [tk.IntVar(value=1) for i in range(len(all_beaches))] # selected or not
+
+def update_selected_beaches():
+    for i, var in enumerate(beach_vars):
+        if var.get() == 1:
+            selected_beaches.add(all_beaches[i])
+        elif var.get() == 0:
+            selected_beaches.discard(all_beaches[i])
+
+def check_all_beaches():
+    for i, var in enumerate(beach_vars):
+        var.set(1)
+        selected_beaches.add(all_beaches[i])
+
+def uncheck_all_beaches():
+    for i, var in enumerate(beach_vars):
+        var.set(0)
+        selected_beaches.discard(all_beaches[i])
 
 def visualization_callback():
     """
@@ -88,6 +110,7 @@ def visualization_callback():
      - color variable
      - size variable
      - the date of observations which should be visualized
+     - beaches selected for visualization
     """
     update_visualization(
         data, selected_date.get(), color_variable.get(), size_variable.get()
@@ -131,10 +154,21 @@ def add_widgets_to_sidebar(sidebar):
     selected_date.set(dates[0]) # default value
     tk.OptionMenu(sidebar, selected_date, *dates).pack()
 
-    submit_button = tk.Button(
-        sidebar, text='Update', command=visualization_callback
-    )
-    submit_button.pack()
+    ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
+
+    # add checkboxes for selecting beaches
+    tk.Label(sidebar, text="Odabir plaža", font='Helvetica 11 bold').pack(fill='x')
+    for i, beach in enumerate(all_beaches):
+        tk.Checkbutton(
+            sidebar, text=beach, variable=beach_vars[i], onvalue=1,
+            command=update_selected_beaches
+        ).pack()
+    tk.Button(sidebar, text='Check all', command=check_all_beaches).pack()
+    tk.Button(sidebar, text='Uncheck all', command=uncheck_all_beaches).pack()
+
+    ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
+
+    tk.Button(sidebar, text='Update visualization', command=visualization_callback).pack()
 
     quit_button = tk.Button(master=sidebar, text="Quit", command=quit_callback)
     quit_button.pack(side=tk.BOTTOM)
@@ -202,14 +236,16 @@ def update_visualization(data, date, color_variable, size_variable):
     ax = fig.gca()
     ax.imshow(img)
     ax.set_title(
-        "Vizualizacija mjerenja u kvarnerskom zaljevu: "
+        "Vizualizacija mjerenja u Kvarnerskom zaljevu: "
         "salinitet, temperatura i E. Coli"
     )
 
     if date == "all dates":
         observations = data
     else:
-        observations = data[data["Datum"] == date]
+        observations = data[
+            (data["Datum"] == date) & (data["Ime plaze"].isin(selected_beaches))
+        ]
 
     column_names = ("Slanost", "Temperatura mora", "EC")
     min_values = (
@@ -281,13 +317,16 @@ def update_visualization(data, date, color_variable, size_variable):
     update_scatterplots(observations, date)
     canvas2.draw()
 
-update_visualization(data, "13/05/2009", ECOLI, TEMPERATURE)
+update_visualization(data, "13/05/2009", SALINITY, SALINITY)
 
 def on_key_press(event):
     #print("you pressed {}".format(event.key))
     key_press_handler(event, canvas, toolbar)
 
 canvas.mpl_connect("key_press_event", on_key_press)
+
+# set to fullscreen
+root.attributes('-zoomed', True)
 
 tk.mainloop()
 # If you put root.destroy() here, it will cause an error if the window is
