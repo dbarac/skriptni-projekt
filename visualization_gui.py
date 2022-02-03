@@ -84,8 +84,6 @@ selected_date = tk.StringVar()
 
 def visualization_callback():
     """
-    Callback function.
-
     This will run when one of the following changes:
      - color variable
      - size variable
@@ -144,15 +142,60 @@ def add_widgets_to_sidebar(sidebar):
 add_widgets_to_sidebar(sidebar)
 
 img = mpimg.imread("kvarnerski-zaljev.png")
-fig = Figure(figsize=(5, 4), dpi=100)
+fig = Figure(figsize=(5, 4), dpi=95)
 
+# canvas for the map
 canvas = FigureCanvasTkAgg(fig, master=mainarea)  # A tk.DrawingArea.
 canvas.draw()
 canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
 toolbar = NavigationToolbar2Tk(canvas, mainarea)
 toolbar.update()
-canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+fig2 = Figure(figsize=(7, 1), dpi=95)
+
+# canvas for the scatterplots
+canvas2 = FigureCanvasTkAgg(fig2, master=mainarea)  # A tk.DrawingArea.
+canvas2.draw()
+canvas2.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+def update_scatterplots(observations, date):
+    """
+    Draw scatterplots (variable pairs). Display correlation coefficient values.
+    """
+    fig2.clf() # clear
+    fig2.suptitle("Parovi opažanja i korelacijski koeficijenti: " + date)
+    
+    ax1 = fig2.add_subplot(131)
+    ax1.set_xlabel("Slanost")
+    ax1.set_ylabel("E. Coli")
+    ax1.set_title(
+        "Pearsonov koeficijent korelacije: {:.2f}".format( 
+            np.corrcoef(observations["Slanost"], observations["EC"])[0, 1]),
+        fontsize=10
+    )
+    ax1.scatter(observations["Slanost"], observations["EC"])
+    
+    ax2 = fig2.add_subplot(132)
+    ax2.set_xlabel("Slanost")
+    ax2.set_ylabel("Temperatura mora")
+    ax2.set_title(
+        "Pearsonov koeficijent korelacije: {:.2f}".format( 
+            np.corrcoef(observations["Slanost"], observations["Temperatura mora"])[0, 1]),
+        fontsize=10
+    )
+    ax2.scatter(observations["Slanost"], observations["Temperatura mora"])
+    
+    ax3 = fig2.add_subplot(133)
+    ax3.set_xlabel("E. Coli")
+    ax3.set_ylabel("Temperatura mora")
+    ax3.set_title(
+        "Pearsonov koeficijent korelacije: {:.2f}".format( 
+            np.corrcoef(observations["EC"], observations["Temperatura mora"])[0, 1]),
+        fontsize=10
+    )
+    ax3.scatter(observations["EC"], observations["Temperatura mora"])
+
 
 def update_visualization(data, date, color_variable, size_variable):
     fig.clf() # clear figure content
@@ -234,6 +277,10 @@ def update_visualization(data, date, color_variable, size_variable):
 
     canvas.draw()
 
+    # draw scatterplots (variable pairs) and display correlation coefficient values
+    update_scatterplots(observations, date)
+    canvas2.draw()
+
 update_visualization(data, "13/05/2009", ECOLI, TEMPERATURE)
 
 def on_key_press(event):
@@ -241,10 +288,6 @@ def on_key_press(event):
     key_press_handler(event, canvas, toolbar)
 
 canvas.mpl_connect("key_press_event", on_key_press)
-
-
-
-
 
 tk.mainloop()
 # If you put root.destroy() here, it will cause an error if the window is
