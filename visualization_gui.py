@@ -81,11 +81,16 @@ ECOLI = 2
 all_beaches = list(data["Ime plaze"].unique())
 selected_beaches = set(data["Ime plaze"].unique())
 
+dates = list(data["Datum"].unique()) # assumption: data rows are sorted chronologically
+
 # visualization parameters
-size_variable = tk.IntVar()
-color_variable = tk.IntVar()
-selected_date = tk.StringVar()
+size_variable = tk.IntVar(value=SALINITY)
+color_variable = tk.IntVar(value=ECOLI)
+start_date = tk.StringVar()
+end_date = tk.StringVar()
 beach_vars = [tk.IntVar(value=1) for i in range(len(all_beaches))] # selected or not
+
+info_label = None
 
 def update_selected_beaches():
     for i, var in enumerate(beach_vars):
@@ -112,8 +117,21 @@ def visualization_callback():
      - the date of observations which should be visualized
      - beaches selected for visualization
     """
+    start_idx = dates.index(start_date.get())
+    end_idx = dates.index(end_date.get())
+
+    if start_idx > end_idx:
+        info_label.config(text="Početni datum ne smije biti kasniji od zadnjeg datuma")
+        return
+    else:
+        info_label.config(text="")
+
+    selected_dates = dates[start_idx:end_idx+1]
+    if isinstance(selected_dates, str):
+        selected_dates = [selected_dates]
+
     update_visualization(
-        data, selected_date.get(), color_variable.get(), size_variable.get()
+        data, selected_dates, color_variable.get(), size_variable.get()
     )
 
 def quit_callback():
@@ -148,11 +166,13 @@ def add_widgets_to_sidebar(sidebar):
     ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
 
     # create dropdown menu for selecting date
-    tk.Label(sidebar, text="Datum opažanja", font='Helvetica 11 bold').pack(fill='x')
-    dates = list(data["Datum"].unique())
-    dates.append("all dates")
-    selected_date.set(dates[0]) # default value
-    tk.OptionMenu(sidebar, selected_date, *dates).pack()
+    tk.Label(sidebar, text="Početni datum", font='Helvetica 11 bold').pack(fill='x')
+    start_date.set(dates[0]) # default value
+    tk.OptionMenu(sidebar, start_date, *dates).pack()
+
+    tk.Label(sidebar, text="Zadnji datum", font='Helvetica 11 bold').pack(fill='x')
+    end_date.set(dates[0]) # default value
+    tk.OptionMenu(sidebar, end_date, *dates).pack()
 
     ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
 
@@ -169,6 +189,10 @@ def add_widgets_to_sidebar(sidebar):
     ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
 
     tk.Button(sidebar, text='Update visualization', command=visualization_callback).pack()
+
+    global info_label
+    info_label = tk.Label(sidebar, text="", font='Helvetica 9 bold',fg='#ff0000')
+    info_label.pack(fill='x')
 
     quit_button = tk.Button(master=sidebar, text="Quit", command=quit_callback)
     quit_button.pack(side=tk.BOTTOM)
@@ -193,13 +217,22 @@ canvas2 = FigureCanvasTkAgg(fig2, master=mainarea)  # A tk.DrawingArea.
 canvas2.draw()
 canvas2.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-def update_scatterplots(observations, date):
+def update_scatterplots(observations, selected_dates):
     """
     Draw scatterplots (variable pairs). Display correlation coefficient values.
     """
     fig2.clf() # clear
-    fig2.suptitle("Parovi opažanja i korelacijski koeficijenti: " + date)
+    if len(selected_dates) > 1:
+        dates_str = selected_dates[0] + " do " + selected_dates[-1]
+    else:
+        dates_str = selected_dates[0]
     
+    if (len(observations) == 0):
+        fig2.suptitle("0 mjerenja odabrano")
+        return
+    else:
+        fig2.suptitle("Parovi opažanja i korelacijski koeficijenti: " + dates_str)
+
     ax1 = fig2.add_subplot(131)
     ax1.set_xlabel("Slanost")
     ax1.set_ylabel("E. Coli")
@@ -231,7 +264,7 @@ def update_scatterplots(observations, date):
     ax3.scatter(observations["EC"], observations["Temperatura mora"])
 
 
-def update_visualization(data, date, color_variable, size_variable):
+def update_visualization(data, selected_dates, color_variable, size_variable):
     fig.clf() # clear figure content
     ax = fig.gca()
     ax.imshow(img)
@@ -240,12 +273,9 @@ def update_visualization(data, date, color_variable, size_variable):
         "salinitet, temperatura i E. Coli"
     )
 
-    if date == "all dates":
-        observations = data
-    else:
-        observations = data[
-            (data["Datum"] == date) & (data["Ime plaze"].isin(selected_beaches))
-        ]
+    observations = data[
+        (data["Datum"].isin(selected_dates)) & (data["Ime plaze"].isin(selected_beaches))
+    ]
 
     column_names = ("Slanost", "Temperatura mora", "EC")
     min_values = (
@@ -259,8 +289,8 @@ def update_visualization(data, date, color_variable, size_variable):
         observations["EC"].max()
     )
 
-    MIN_SIZE = 200
-    MAX_SIZE = 600
+    MIN_SIZE = 100
+    MAX_SIZE = 700
     def get_circle_size(size_variable, value):
         """
         Select circle size between MIN_SIZE and MAX_SIZE
@@ -314,10 +344,11 @@ def update_visualization(data, date, color_variable, size_variable):
     canvas.draw()
 
     # draw scatterplots (variable pairs) and display correlation coefficient values
-    update_scatterplots(observations, date)
+    update_scatterplots(observations, selected_dates)
     canvas2.draw()
 
-update_visualization(data, "13/05/2009", SALINITY, SALINITY)
+# initial settings
+update_visualization(data, [dates[0]], color_variable.get(), size_variable.get())
 
 def on_key_press(event):
     #print("you pressed {}".format(event.key))
