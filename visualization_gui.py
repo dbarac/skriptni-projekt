@@ -353,8 +353,8 @@ def update_visualization(data, selected_dates, color_variable, size_variable):
 # visualize with initial settings
 update_visualization(data, ["8/6/2010"], color_variable.get(), size_variable.get())
 
-# set to fullscreen
-root.attributes('-zoomed', True)
+# set to fullscreen (works only on linux)
+#root.attributes('-zoomed', True)
 
 tk.mainloop()
 # If you put root.destroy() here, it will cause an error if the window is
