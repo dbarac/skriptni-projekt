@@ -6,6 +6,7 @@ import mplcursors
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter.scrolledtext import ScrolledText
 
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk)
@@ -177,11 +178,16 @@ def add_widgets_to_sidebar(sidebar):
 
     # add checkboxes for selecting beaches
     tk.Label(sidebar, text="Odabir plaža", font='Helvetica 11 bold').pack(fill='x')
+    scrollabe_area = ScrolledText(sidebar, width=38, height=12)
+    scrollabe_area.pack()
     for i, beach in enumerate(all_beaches):
-        tk.Checkbutton(
-            sidebar, text=beach, variable=beach_vars[i], onvalue=1,
-            command=update_selected_beaches
-        ).pack()
+        checkbox = tk.Checkbutton(
+            scrollabe_area, text=beach, variable=beach_vars[i], onvalue=1, anchor=tk.W,
+            command=update_selected_beaches, bg="white"
+        )
+        scrollabe_area.window_create('end', window=checkbox)
+        scrollabe_area.insert('end', '\n')
+    scrollabe_area['state'] = 'disabled'
     tk.Button(sidebar, text='Check all', command=check_all_beaches).pack()
     tk.Button(sidebar, text='Uncheck all', command=uncheck_all_beaches).pack()
 
