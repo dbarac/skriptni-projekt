@@ -74,14 +74,14 @@ sidebar.pack(expand=False, fill='both', side='left', anchor='nw')
 mainarea = tk.Frame(root, bg='#CCC', width=500, height=500)
 mainarea.pack(expand=True, fill='both', side='right')
 
-SALINITY = 0
-TEMPERATURE = 1
-ECOLI = 2
 
 all_beaches = list(data["Ime plaze"].unique())
 selected_beaches = set(data["Ime plaze"].unique())
-
 dates = list(data["Datum"].unique()) # assumption: data rows are sorted chronologically
+
+SALINITY = 0
+TEMPERATURE = 1
+ECOLI = 2
 
 # visualization parameters
 size_variable = tk.IntVar(value=SALINITY)
@@ -114,7 +114,7 @@ def visualization_callback():
     This will run when one of the following changes:
      - color variable
      - size variable
-     - the date of observations which should be visualized
+     - the range of dates (observations which should be visualized)
      - beaches selected for visualization
     """
     start_idx = dates.index(start_date.get())
@@ -165,13 +165,12 @@ def add_widgets_to_sidebar(sidebar):
 
     ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
 
-    # create dropdown menu for selecting date
+    # create dropdown menus for selecting start date and end date
     tk.Label(sidebar, text="Početni datum", font='Helvetica 11 bold').pack(fill='x')
-    start_date.set(dates[0]) # default value
+    start_date.set("8/6/2010") # default value
     tk.OptionMenu(sidebar, start_date, *dates).pack()
-
     tk.Label(sidebar, text="Zadnji datum", font='Helvetica 11 bold').pack(fill='x')
-    end_date.set(dates[0]) # default value
+    end_date.set("8/6/2010") # default value
     tk.OptionMenu(sidebar, end_date, *dates).pack()
 
     ttk.Separator(sidebar, orient='horizontal').pack(fill='x')
@@ -200,20 +199,18 @@ def add_widgets_to_sidebar(sidebar):
 add_widgets_to_sidebar(sidebar)
 
 img = mpimg.imread("kvarnerski-zaljev.png")
-fig = Figure(figsize=(5, 4), dpi=95)
 
 # canvas for the map
-canvas = FigureCanvasTkAgg(fig, master=mainarea)  # A tk.DrawingArea.
+fig = Figure(figsize=(5, 4), dpi=95)
+canvas = FigureCanvasTkAgg(fig, master=mainarea)
 canvas.draw()
 canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-
 toolbar = NavigationToolbar2Tk(canvas, mainarea)
 toolbar.update()
 
-fig2 = Figure(figsize=(7, 1), dpi=95)
-
 # canvas for the scatterplots
-canvas2 = FigureCanvasTkAgg(fig2, master=mainarea)  # A tk.DrawingArea.
+fig2 = Figure(figsize=(5, 2), dpi=95)
+canvas2 = FigureCanvasTkAgg(fig2, master=mainarea)
 canvas2.draw()
 canvas2.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
@@ -221,12 +218,12 @@ def update_scatterplots(observations, selected_dates):
     """
     Draw scatterplots (variable pairs). Display correlation coefficient values.
     """
-    fig2.clf() # clear
+    fig2.clf() # clear figure
     if len(selected_dates) > 1:
         dates_str = selected_dates[0] + " do " + selected_dates[-1]
     else:
         dates_str = selected_dates[0]
-    
+
     if (len(observations) == 0):
         fig2.suptitle("0 mjerenja odabrano")
         return
@@ -242,7 +239,7 @@ def update_scatterplots(observations, selected_dates):
         fontsize=10
     )
     ax1.scatter(observations["Slanost"], observations["EC"])
-    
+
     ax2 = fig2.add_subplot(132)
     ax2.set_xlabel("Slanost")
     ax2.set_ylabel("Temperatura mora")
@@ -290,7 +287,7 @@ def update_visualization(data, selected_dates, color_variable, size_variable):
     )
 
     MIN_SIZE = 100
-    MAX_SIZE = 700
+    MAX_SIZE = 600
     def get_circle_size(size_variable, value):
         """
         Select circle size between MIN_SIZE and MAX_SIZE
@@ -347,14 +344,8 @@ def update_visualization(data, selected_dates, color_variable, size_variable):
     update_scatterplots(observations, selected_dates)
     canvas2.draw()
 
-# initial settings
-update_visualization(data, [dates[0]], color_variable.get(), size_variable.get())
-
-def on_key_press(event):
-    #print("you pressed {}".format(event.key))
-    key_press_handler(event, canvas, toolbar)
-
-canvas.mpl_connect("key_press_event", on_key_press)
+# visualize with initial settings
+update_visualization(data, ["8/6/2010"], color_variable.get(), size_variable.get())
 
 # set to fullscreen
 root.attributes('-zoomed', True)
